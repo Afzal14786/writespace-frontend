@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { createPortal } from "react-dom";
-import { ThumbsUp, MessageSquare, Repeat, Share2, MoreHorizontal, Link as LinkIcon, X, Trash2, Heart, UserPlus, Pencil } from "lucide-react";
+import { ThumbsUp, MessageSquare,Share2, MoreHorizontal, Link as LinkIcon, X, Trash2, Heart, UserPlus, Pencil } from "lucide-react";
 import { FaXTwitter, FaLinkedinIn, FaFacebookF, FaWhatsapp, FaRedditAlien } from "react-icons/fa6";
 
 import { useTheme } from "../../context/ThemeContext";
@@ -200,8 +200,10 @@ const PostComponent: React.FC<PostComponentProps> = ({ post, onPostDeleted }) =>
       } else {
         window.open(url, '_blank', 'noopener,noreferrer,width=600,height=400');
       }
-      await InteractionsAPI.sharePost(currentPost.id, platform); 
-      setSharesCount(prev => prev + 1);
+      if (platform !== "copy") {
+        await InteractionsAPI.createShare(currentPost.id, platform);
+        setSharesCount((prev) => prev + 1);
+      }
     } catch (error: unknown) {
       console.error(error);
     }
@@ -323,6 +325,7 @@ const PostComponent: React.FC<PostComponentProps> = ({ post, onPostDeleted }) =>
               <div style={{ position: "absolute", top: "100%", right: 0, marginTop: "8px", backgroundColor: cardBg, border: `1px solid ${borderColor}`, borderRadius: "8px", boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 10, width: "160px", overflow: "hidden" }}>
                 
                 <button 
+                  disabled={isLoadingEditPost}
                   onClick={async (e) => {
                     e.stopPropagation();
                     setIsOptionsMenuOpen(false);
@@ -482,10 +485,6 @@ const PostComponent: React.FC<PostComponentProps> = ({ post, onPostDeleted }) =>
           
           <button onClick={() => setShowComments(!showComments)} style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", gap: "8px", background: "none", border: "none", color: mutedText, fontSize: "0.9rem", fontWeight: 600, padding: "12px 8px", borderRadius: "8px", cursor: "pointer", transition: "background 0.2s" }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"} onMouseOut={(e) => e.currentTarget.style.backgroundColor = "transparent"}>
             <MessageSquare size={20} /> {!isMobile && <span>Comment</span>}
-          </button>
-          
-          <button onClick={() => toast.info("Repost feature coming soon!")} style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", gap: "8px", background: "none", border: "none", color: mutedText, fontSize: "0.9rem", fontWeight: 600, padding: "12px 8px", borderRadius: "8px", cursor: "pointer", transition: "background 0.2s" }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"} onMouseOut={(e) => e.currentTarget.style.backgroundColor = "transparent"}>
-            <Repeat size={20} /> {!isMobile && <span>Repost</span>}
           </button>
           
           <button onClick={() => setIsShareModalOpen(true)} style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", gap: "8px", background: "none", border: "none", color: mutedText, fontSize: "0.9rem", fontWeight: 600, padding: "12px 8px", borderRadius: "8px", cursor: "pointer", transition: "background 0.2s" }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"} onMouseOut={(e) => e.currentTarget.style.backgroundColor = "transparent"}>

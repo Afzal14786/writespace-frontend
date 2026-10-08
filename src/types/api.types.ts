@@ -126,18 +126,29 @@ export interface CommentData {
   id: string;
   content: string;
   parentCommentId: string | null;
-  likeCount: number;
+  likeCount?: number;
   replyCount: number;
   isEdited: boolean;
   createdAt: string;
   updatedAt: string;
+
   author: {
     id: string;
     username: string;
     fullname: string;
     profileImageUrl: string | null;
   };
-  isLikedByMe: boolean;
+
+  isReacted?: boolean;
+  reactionType?:
+    | "like"
+    | "love"
+    | "laugh"
+    | "celebrate"
+    | "support"
+    | "sad"
+    | "angry"
+    | null;
 }
 
 export interface PaginatedCommentsResponse {

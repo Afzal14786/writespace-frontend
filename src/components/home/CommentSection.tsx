@@ -110,6 +110,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ postId }) => {
             type="text" 
             placeholder="Add a comment..." 
             value={commentText} 
+            maxLength={2500}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCommentText(e.target.value)} 
             onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => { if(e.key === 'Enter') handleAddTopLevelComment(); }} 
             style={{ flex: 1, background: "transparent", border: "none", color: textColor, padding: "8px", outline: "none", fontSize: isMobile ? "0.8rem" : "0.85rem" }} 

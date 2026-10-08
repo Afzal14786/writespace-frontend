@@ -30,8 +30,13 @@ const CommentThread: React.FC<CommentThreadProps> = ({ comment, postId, depth = 
   const MAX_DEPTH = isMobile ? 3 : 5;
 
   // Optimistic UI State
-  const [isLiked, setIsLiked] = useState<boolean>(comment.isLikedByMe);
-  const [likeCount, setLikeCount] = useState<number>(comment.likeCount);
+  const [isLiked, setIsLiked] = useState<boolean>(
+    comment.isReacted === true && comment.reactionType === "like"
+  );
+
+  const [likeCount, setLikeCount] = useState<number>(
+    comment.likeCount ?? 0
+  );
   
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [editContent, setEditContent] = useState<string>(comment.content);
@@ -62,16 +67,29 @@ const CommentThread: React.FC<CommentThreadProps> = ({ comment, postId, depth = 
     const previousIsLiked = isLiked;
     const previousLikeCount = likeCount;
 
-    setIsLiked(!previousIsLiked);
-    setLikeCount(prev => (previousIsLiked ? prev - 1 : prev + 1));
+    const nextIsLiked = !previousIsLiked;
+
+    setIsLiked(nextIsLiked);
+    setLikeCount((prev) =>
+      nextIsLiked ? prev + 1 : Math.max(prev - 1, 0)
+    );
 
     try {
-      await InteractionsAPI.toggleCommentLike(comment.id);
+      const result = nextIsLiked
+        ? await InteractionsAPI.setCommentReaction(comment.id, "like")
+        : await InteractionsAPI.removeCommentReaction(comment.id);
+
+      const backendLiked =
+        result.isReacted && result.reactionType === "like";
+
+      setIsLiked(backendLiked);
     } catch (error: unknown) {
-      console.error(`Error while interaction :`, error);
+      console.error("Error while comment interaction:", error);
+
       setIsLiked(previousIsLiked);
       setLikeCount(previousLikeCount);
-      toast.error("Failed to like comment");
+
+      toast.error("Failed to update comment reaction");
     }
   };
 
@@ -185,6 +203,7 @@ const CommentThread: React.FC<CommentThreadProps> = ({ comment, postId, depth = 
               <textarea 
                 autoFocus
                 value={editContent}
+                maxLength={2500}
                 onChange={(e) => setEditContent(e.target.value)}
                 style={{ width: "100%", backgroundColor: "transparent", border: `1px solid ${borderColor}`, color: textColor, padding: "8px", borderRadius: "8px", outline: "none", fontSize: isMobile ? "0.8rem" : "0.85rem", minHeight: "60px", resize: "vertical", fontFamily: "inherit" }}
               />
@@ -237,6 +256,7 @@ const CommentThread: React.FC<CommentThreadProps> = ({ comment, postId, depth = 
               autoFocus
               placeholder={`Replying to ${comment.author.username}...`}
               value={replyText}
+              maxLength={2500}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReplyText(e.target.value)}
               onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => { if(e.key === 'Enter') handleSubmitReply(); }}
               style={{ flex: 1, backgroundColor: inputBg, border: `1px solid ${borderColor}`, color: textColor, padding: isMobile ? "6px 10px" : "8px 12px", borderRadius: "20px", outline: "none", fontSize: isMobile ? "0.8rem" : "0.85rem" }}
