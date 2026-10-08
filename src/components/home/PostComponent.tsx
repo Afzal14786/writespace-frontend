@@ -65,6 +65,8 @@ const PostComponent: React.FC<PostComponentProps> = ({ post, onPostDeleted }) =>
 
   const [currentPost, setCurrentPost] = useState<ExtendedPost>(post);
   const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [editingPost, setEditingPost] = useState<Post | null>(null);
+  const [isLoadingEditPost, setIsLoadingEditPost] = useState<boolean>(false);
 
   useEffect(() => {
     setCurrentPost(post);
@@ -247,8 +249,15 @@ const PostComponent: React.FC<PostComponentProps> = ({ post, onPostDeleted }) =>
 
   if (isDeleted) return null;
 
-  const profileLink = isOwnPost ? "/profile/me" : `/profile/${currentPost.author?.username}`;
+  const profileLink = isOwnPost
+    ? "/profile"
+    : `/profile/${currentPost.author?.username}`;
   const shareUrl = `${window.location.origin}/post/${currentPost.id}`;
+  const coverImageSrc = currentPost.coverImageUrl
+    ? currentPost.coverImageUrl.startsWith("/")
+      ? `http://localhost:8000${currentPost.coverImageUrl}`
+      : currentPost.coverImageUrl
+    : null;
   
   const encodedTitle = encodeURIComponent(currentPost.title || "Check out this post on Writespace");
   const encodedUrl = encodeURIComponent(shareUrl);
@@ -314,10 +323,21 @@ const PostComponent: React.FC<PostComponentProps> = ({ post, onPostDeleted }) =>
               <div style={{ position: "absolute", top: "100%", right: 0, marginTop: "8px", backgroundColor: cardBg, border: `1px solid ${borderColor}`, borderRadius: "8px", boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 10, width: "160px", overflow: "hidden" }}>
                 
                 <button 
-                  onClick={(e) => { 
-                    e.stopPropagation(); 
-                    setIsEditing(true); 
-                    setIsOptionsMenuOpen(false); 
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    setIsOptionsMenuOpen(false);
+                    setIsLoadingEditPost(true);
+
+                    try {
+                      const fullPost = await PostsAPI.getPostById(currentPost.id);
+                      setEditingPost(fullPost);
+                      setIsEditing(true);
+                    } catch (error) {
+                      console.error(error);
+                      toast.error("Failed to load post for editing.");
+                    } finally {
+                      setIsLoadingEditPost(false);
+                    }
                   }} 
                   style={{ width: "100%", display: "flex", alignItems: "center", gap: "8px", padding: "12px 14px", background: "none", border: "none", borderBottom: `1px solid ${borderColor}`, color: textColor, cursor: "pointer", fontSize: "0.85rem", fontWeight: 600 }}
                 >
@@ -353,6 +373,42 @@ const PostComponent: React.FC<PostComponentProps> = ({ post, onPostDeleted }) =>
             <h2 style={{ fontSize: "1.2rem", fontWeight: 800, color: textColor, margin: "0 0 8px 0", lineHeight: "1.4" }}>
               {currentPost.title}
             </h2>
+          )}
+
+          {currentPost.subtitle && (
+            <p
+              style={{
+                fontSize: "0.95rem",
+                lineHeight: "1.5",
+                color: mutedText,
+                margin: "0 0 12px 0",
+                fontWeight: 500,
+              }}
+            >
+              {currentPost.subtitle}
+            </p>
+          )}
+
+          {coverImageSrc && (
+            <div
+              style={{
+                marginBottom: "14px",
+                borderRadius: "10px",
+                overflow: "hidden",
+                backgroundColor: isDark ? "#0f172a" : "#f1f5f9",
+              }}
+            >
+              <img
+                src={coverImageSrc}
+                alt={currentPost.coverImageAltText || currentPost.title || "Post cover"}
+                style={{
+                  width: "100%",
+                  maxHeight: "320px",
+                  objectFit: "cover",
+                  display: "block",
+                }}
+              />
+            </div>
           )}
 
           {currentPost.content && (
@@ -506,12 +562,16 @@ const PostComponent: React.FC<PostComponentProps> = ({ post, onPostDeleted }) =>
         document.body
       )}
 
-      {isEditing && (
-        <CreatePostEditor 
-          editPost={currentPost as unknown as Post} 
-          onCloseEdit={() => setIsEditing(false)}
+      {isEditing && editingPost && (
+        <CreatePostEditor
+          editPost={editingPost}
+          onCloseEdit={() => {
+            setIsEditing(false);
+            setEditingPost(null);
+          }}
           onPostUpdated={(updatedPost) => {
             setCurrentPost(prev => ({ ...prev, ...updatedPost }));
+            setEditingPost(null);
             setIsEditing(false);
           }}
         />

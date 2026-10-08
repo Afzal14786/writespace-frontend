@@ -36,6 +36,14 @@ export interface UsernameCheckResponse {
   suggestions?: string[];
 }
 
+export interface UserSearchResult {
+  id: string;
+  username: string;
+  fullname: string;
+  profileImageUrl?: string | null;
+  headline?: string | null;
+}
+
 export const UsersAPI = {
   checkUsername: async (username: string): Promise<UsernameCheckResponse> => {
     const response = await api.get<BackendResponse<UsernameCheckResponse>>(
@@ -72,11 +80,11 @@ export const UsersAPI = {
       formData.append("bannerImage", payload.bannerImage);
     }
 
-    const response = await api.put(`/users/${userId}`, formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
+    const response = await api.put<BackendResponse<User>>(
+      `/users/${userId}`,
+      formData
+    );
+
     return response.data.data;
   },
 
@@ -89,8 +97,14 @@ export const UsersAPI = {
     return response.data.data;
   },
 
-  searchUsers: async (query: string): Promise<User[]> => {
-    const response = await api.get(`/users/search?q=${encodeURIComponent(query)}`);
+  searchUsers: async (query: string): Promise<UserSearchResult[]> => {
+    const response = await api.get<BackendResponse<UserSearchResult[]>>(
+      `/users/search`,
+      {
+        params: { q: query },
+      }
+    );
+
     return response.data.data;
   }
 };

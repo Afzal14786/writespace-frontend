@@ -35,6 +35,14 @@ export const AuthAPI = {
   logout: async (): Promise<void> => {
     await api.post<BackendResponse<null>>("/auth/logout");
   },
+  
+  refreshToken: async (): Promise<{ accessToken: string }> => {
+  const response = await api.post<BackendResponse<{ accessToken: string }>>(
+    "/auth/refresh-token"
+  );
+
+  return response.data.data;
+},
 
   forgotPassword: async (email: string): Promise<void> => {
     await api.post<BackendResponse<null>>("/auth/forgot-password", { email });
@@ -44,9 +52,8 @@ export const AuthAPI = {
     await api.post<BackendResponse<null>>("/auth/reset-password", data);
   },
 
-  updatePassword: async (data: UpdatePasswordPayload): Promise<AuthResponse> => {
-    const response = await api.put<AuthResponse>("/auth/update-password", data);
-    return response.data;
+  updatePassword: async (data: UpdatePasswordPayload): Promise<void> => {
+    await api.put<BackendResponse<null>>("/auth/update-password", data);
   },
   
   googleLogin: (): void => {

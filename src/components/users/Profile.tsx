@@ -16,7 +16,12 @@ const Profile: React.FC = () => {
   const { username } = useParams<{ username: string }>();
   const { theme } = useTheme();
   
-  const { user: authUser, isAuthenticated, isLoadingAuth } = useAuth(); 
+  const {
+    user: authUser,
+    isAuthenticated,
+    isLoadingAuth,
+    checkAuth,
+  } = useAuth();
 
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -72,12 +77,26 @@ const Profile: React.FC = () => {
     setFollowerCount((prev) => (wasFollowing ? prev - 1 : prev + 1));
 
     try {
-      await UsersAPI.toggleFollow(profileUser.id);
+      const result = await UsersAPI.toggleFollow(profileUser.id);
+      const followingNow = result.status === "followed";
+
+      setIsFollowing(followingNow);
+      setFollowerCount((current) => {
+        if (followingNow === wasFollowing) return current;
+
+        return followingNow
+          ? current + 1
+          : Math.max(current - 1, 0);
+      });
+      
     } catch (error) {
       setIsFollowing(wasFollowing);
-      setFollowerCount((prev) => (wasFollowing ? prev + 1 : prev - 1));
+      setFollowerCount((current) =>
+        wasFollowing ? current + 1 : Math.max(current - 1, 0)
+      );
+
       toast.error("Failed to update follow status.");
-      console.error(error); 
+      console.error(error);
     }
   };
 
@@ -163,7 +182,13 @@ const Profile: React.FC = () => {
         <EditProfileModal 
           user={profileUser} 
           onClose={() => setIsEditModalOpen(false)} 
-          onUpdate={(updated: Partial<User>) => setProfileUser(prev => prev ? { ...prev, ...updated } : null)} 
+          onUpdate={(updated: Partial<User>) => {
+            setProfileUser(prev => (prev ? { ...prev, ...updated } : null));
+
+            if (isOwnProfile) {
+              void checkAuth();
+            }
+          }}
         />
       )}
     </div>

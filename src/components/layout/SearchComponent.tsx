@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Search, Loader2 } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
 import { UsersAPI } from "../../api/users.api";
-import type { User } from "../../types/api.types";
+import type { UserSearchResult } from "../../api/users.api";
 
 interface SearchComponentProps {
   isMobile?: boolean;
@@ -17,9 +17,10 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ isMobile, autoFocus, 
   const isDark = theme === "dark";
 
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [searchResults, setSearchResults] = useState<User[]>([]);
+  const [searchResults, setSearchResults] = useState<UserSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [showDropdown, setShowDropdown] = useState<boolean>(false);
+  
   
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
@@ -134,7 +135,7 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ isMobile, autoFocus, 
             </div>
           ) : searchResults.length > 0 ? (
             <div>
-              {searchResults.map((result: User) => (
+              {searchResults.map((result) => (
                 <div
                   key={result.id}
                   onClick={() => handleResultClick(result.username)}

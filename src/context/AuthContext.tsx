@@ -26,11 +26,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [accessToken, setAccessToken] = useState<string | null>(localStorage.getItem("accessToken"));
   
   // SWR: Only block UI if we have a token but NO cached data
-  const [isLoadingAuth, setIsLoadingAuth] = useState<boolean>(() => {
-    const hasToken = !!localStorage.getItem("accessToken");
-    const hasCachedUser = !!localStorage.getItem("userData");
-    return hasToken && !hasCachedUser;
-  });
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
   const logoutState = useCallback(async () => {
     try {
@@ -67,26 +63,55 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const checkAuth = useCallback(async () => {
-    if (!localStorage.getItem("accessToken")) {
-      setIsLoadingAuth(false);
-      return;
-    }
+    setIsLoadingAuth(true);
 
     try {
-      // Silent background fetch to update stale cache
+      let currentToken = localStorage.getItem("accessToken");
+
+      // No access token? Try to recover the session using
+      // the HttpOnly refresh-token cookie.
+      if (!currentToken) {
+        try {
+          const refreshed = await AuthAPI.refreshToken();
+
+          currentToken = refreshed.accessToken;
+
+          localStorage.setItem("accessToken", currentToken);
+          setAccessToken(currentToken);
+        } catch {
+          // No valid refresh session. User is simply logged out.
+          setAccessToken(null);
+          setUser(null);
+
+          localStorage.removeItem("accessToken");
+          localStorage.removeItem("userData");
+          localStorage.removeItem("user");
+
+          return;
+        }
+      }
+
+      // We now have an access token, so fetch the latest user.
       const freshUserData = await UsersAPI.getMe();
-      const freshToken = localStorage.getItem("accessToken"); 
-      
+
       setUser(freshUserData);
-      setAccessToken(freshToken);
+      setAccessToken(currentToken);
+
+      localStorage.setItem("accessToken", currentToken);
       localStorage.setItem("userData", JSON.stringify(freshUserData));
     } catch (error) {
-      console.error("Background sync failed. Session revoked.", error);
-      await logoutState();
+      console.error("Session restoration failed.", error);
+
+      setAccessToken(null);
+      setUser(null);
+
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("userData");
+      localStorage.removeItem("user");
     } finally {
       setIsLoadingAuth(false);
     }
-  }, [logoutState]);
+  }, []);
 
   useEffect(() => {
     checkAuth();

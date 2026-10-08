@@ -34,7 +34,6 @@ export interface User {
 
 export interface AuthResponse {
   accessToken: string;
-  refreshToken: string;
   user: User;
 }
 
@@ -62,7 +61,6 @@ export interface VerifyOtpPayload {
 export interface CodeSnippet {
   language: string;
   code: string;
-  title?: string;
 }
 
 export interface Post {
@@ -72,13 +70,19 @@ export interface Post {
   subtitle?: string | null;
   content: string;
   excerpt?: string | null;
+
   media?: string[] | null;
-  codeSnippets?: CodeSnippet[] | null; // Added codeSnippets
+  mediaPublicIds?: string[] | null;
+
+  codeSnippets?: CodeSnippet[] | null;
   coverImageUrl?: string | null;
+  coverImagePublicId?: string | null;
+  coverImageAltText?: string | null;
+  coverImageCredit?: string | null;
+
   tags?: string[] | null;
   authorId: string;
-  
-  // Added from your backend Drizzle joins
+
   author: {
     id: string;
     username: string;
@@ -86,25 +90,36 @@ export interface Post {
     profileImageUrl?: string | null;
     isFollowingByMe?: boolean;
   };
-  isLikedByMe: boolean; // Crucial for Optimistic UI
 
-  status: "draft" | "published" | "archived";
+  isLikedByMe: boolean;
+
+  status: "draft" | "scheduled" | "published" | "archived" | "trash";
+
+  scheduledAt?: string | null;
   publishDate?: string | null;
+
   viewCount: number;
   likeCount: number;
   commentCount: number;
   shareCount: number;
   readTime?: number | null;
+
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreatePostPayload {
   title: string;
+  subtitle?: string;
   content: string;
-  images?: File[]; 
-  codeSnippets?: Omit<CodeSnippet, 'id'>[];
   tags?: string[];
+  codeSnippets?: CodeSnippet[];
+
+  status?: "draft" | "scheduled" | "published";
+  scheduledAt?: string | null;
+
+  banner?: File;
+  media?: File[];
 }
 
 export interface CommentData {

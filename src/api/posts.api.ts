@@ -24,15 +24,17 @@ export interface GetPostsParams {
 
 export const PostsAPI = {
   getPosts: async (params?: GetPostsParams): Promise<PaginatedPosts> => {
-    const query = new URLSearchParams();
-    
-    if (params?.cursor) query.append("cursor", params.cursor);
-    if (params?.limit) query.append("limit", params.limit.toString());
-    if (params?.authorId) query.append("authorId", params.authorId);
+    const response = await api.get<BackendResponse<PaginatedPosts>>(
+      "/posts",
+      {
+        params: {
+          cursor: params?.cursor,
+          limit: params?.limit,
+          authorId: params?.authorId,
+        },
+      }
+    );
 
-    const url = `/posts?${query.toString()}`;
-    const response = await api.get(url);
-    
     return response.data.data;
   },
 
@@ -42,21 +44,30 @@ export const PostsAPI = {
   },
 
   createPost: async (formData: FormData): Promise<Post> => {
-    const response = await api.post<BackendResponse<Post>>("/posts", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const response = await api.post<BackendResponse<Post>>(
+      "/posts/create",
+      formData
+    );
+
     return response.data.data;
   },
 
-  likePost: async (id: string): Promise<{ status: string; likesCount: number }> => {
-    const response = await api.post<BackendResponse<{ status: string; likesCount: number }>>(`/posts/${id}/like`);
+  likePost: async (
+    id: string
+  ): Promise<{ status: "liked" | "unliked" }> => {
+    const response = await api.post<
+      BackendResponse<{ status: "liked" | "unliked" }>
+    >(`/posts/${id}/like`);
+
     return response.data.data;
   },
 
   updatePost: async (postId: string, formData: FormData): Promise<Post> => {
-    const response = await api.put<BackendResponse<Post>>(`/posts/${postId}`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const response = await api.put<BackendResponse<Post>>(
+      `/posts/${postId}`,
+      formData
+    );
+
     return response.data.data;
   },
 

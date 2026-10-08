@@ -28,7 +28,7 @@ export default function OAuthSuccess() {
         
         loginState(userProfile, urlToken);
         
-        navigate("/", { replace: true });
+        navigate("/home", { replace: true });
       } catch (error) {
         console.error("OAuth handshake failed:", error);
         localStorage.removeItem("accessToken");

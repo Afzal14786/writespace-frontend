@@ -34,11 +34,12 @@ interface CreatePostEditorProps {
   onPostUpdated?: (updatedPost: Post) => void;
 }
 
-interface DraftState { 
+interface DraftState {
   title: string;
-  content: string; 
-  tags: string[]; 
-  codeSnippets: { id: string; language: string; code: string }[]; 
+  subtitle: string;
+  content: string;
+  tags: string[];
+  codeSnippets: { id: string; language: string; code: string }[];
 }
 
 const CreatePostEditor: React.FC<CreatePostEditorProps> = ({ onPostCreated, editPost, onCloseEdit, onPostUpdated }) => {
@@ -52,12 +53,36 @@ const CreatePostEditor: React.FC<CreatePostEditorProps> = ({ onPostCreated, edit
   const [isDraftLoaded, setIsDraftLoaded] = useState<boolean>(false);
   const [draftStatus, setDraftStatus] = useState<"Saving..." | "Saved" | "">("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  const [postStatus, setPostStatus] = useState<
+    "draft" | "scheduled" | "published"
+  >(
+    editPost?.status === "scheduled" || editPost?.status === "published"
+      ? editPost.status
+      : "draft"
+  );
+
+  const [scheduledAt, setScheduledAt] = useState<string>(
+    editPost?.scheduledAt
+      ? new Date(editPost.scheduledAt).toISOString().slice(0, 16)
+      : ""
+  );
   
   const [title, setTitle] = useState<string>(editPost?.title || "");
+  const [subtitle, setSubtitle] = useState<string>(
+    editPost?.subtitle || ""
+  );
   
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
   const [mediaPreviews, setMediaPreviews] = useState<string[]>([]);
   const [existingMedia, setExistingMedia] = useState<string[]>(editPost?.media || []);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(
+    editPost?.coverImageUrl || null
+  );
+  const [existingMediaPublicIds, setExistingMediaPublicIds] = useState<string[]>(
+    editPost?.mediaPublicIds || []
+  );
   
   const initialSnippets = (editPost?.codeSnippets || []).map(s => ({
     id: Math.random().toString(36).substr(2, 9),
@@ -94,6 +119,7 @@ const CreatePostEditor: React.FC<CreatePostEditorProps> = ({ onPostCreated, edit
         try {
           const parsed = JSON.parse(savedDraft) as DraftState;
           if (parsed.title) setTitle(parsed.title);
+          if (parsed.subtitle) setSubtitle(parsed.subtitle);
           if (parsed.tags) setTags(parsed.tags);
           if (parsed.codeSnippets) setCodeSnippets(parsed.codeSnippets);
           if (parsed.content) editor.commands.setContent(parsed.content);
@@ -120,7 +146,7 @@ const CreatePostEditor: React.FC<CreatePostEditorProps> = ({ onPostCreated, edit
     if (title.trim() || liveText.trim() || codeSnippets.length > 0 || tags.length > 0) {
       setDraftStatus("Saving...");
       const saveTimer = setTimeout(() => {
-        localStorage.setItem("writespace_draft", JSON.stringify({ title, content: liveHtml, tags, codeSnippets }));
+        localStorage.setItem("writespace_draft", JSON.stringify({ title, subtitle, content: liveHtml, tags, codeSnippets }));
         setDraftStatus("Saved");
       }, 1000);
       return () => clearTimeout(saveTimer);
@@ -128,7 +154,7 @@ const CreatePostEditor: React.FC<CreatePostEditorProps> = ({ onPostCreated, edit
       localStorage.removeItem("writespace_draft");
       setDraftStatus("");
     }
-  }, [title, tags, codeSnippets, isExpanded, isDraftLoaded, isEditMode, editor]);
+  }, [title, subtitle, tags, codeSnippets, isExpanded, isDraftLoaded, isEditMode, editor]);
 
   useEffect(() => {
     document.body.style.overflow = isExpanded ? "hidden" : "unset";
@@ -138,18 +164,30 @@ const CreatePostEditor: React.FC<CreatePostEditorProps> = ({ onPostCreated, edit
   const resetForm = () => {
     localStorage.removeItem("writespace_draft");
     setTitle("");
+    setSubtitle("");  
     setTags([]);
     setTagInput("");
+
+    setPostStatus("draft");
+    setScheduledAt("");
     
     mediaPreviews.forEach(url => URL.revokeObjectURL(url));
     setMediaFiles([]); 
     setMediaPreviews([]);
     setExistingMedia([]);
+    setExistingMediaPublicIds([]);
     
     setCodeSnippets([]); 
     editor?.commands.setContent(""); 
     setDraftStatus(""); 
     setIsExpanded(false);
+
+    if (bannerPreview && !editPost?.coverImageUrl) {
+      URL.revokeObjectURL(bannerPreview);
+    }
+
+    setBannerFile(null);
+    setBannerPreview(null);
   };
 
   const handleDiscard = () => {
@@ -198,8 +236,32 @@ const CreatePostEditor: React.FC<CreatePostEditorProps> = ({ onPostCreated, edit
     try {
       const formData = new FormData();
       formData.append("title", finalTitle);
-      formData.append("content", finalHtml); 
-      formData.append("isPublished", "true"); 
+      if (subtitle.trim()) {
+        formData.append("subtitle", subtitle.trim());
+      }
+      formData.append("content", finalHtml);
+      formData.append("status", postStatus);
+
+      if (postStatus === "scheduled") {
+        if (!scheduledAt) {
+          toast.error("Please select a schedule date and time.");
+          setIsSubmitting(false);
+          return;
+        }
+
+        const scheduledDate = new Date(scheduledAt);
+
+        if (scheduledDate <= new Date()) {
+          toast.error("Scheduled time must be in the future.");
+          setIsSubmitting(false);
+          return;
+        }
+
+        formData.append("scheduledAt", scheduledDate.toISOString());
+      }
+      if (bannerFile) {
+        formData.append("banner", bannerFile);
+      }
       
       if (tags.length > 0) {
         formData.append("tags", JSON.stringify(tags));
@@ -210,8 +272,22 @@ const CreatePostEditor: React.FC<CreatePostEditorProps> = ({ onPostCreated, edit
         formData.append("codeSnippets", JSON.stringify(cleanSnippets));
       }
 
-      if (existingMedia.length > 0) {
-        existingMedia.forEach(url => formData.append("existingMedia", url));
+      if (isEditMode) {
+        existingMedia.forEach(url => {
+          formData.append("existingMedia", url);
+        });
+
+        existingMediaPublicIds.forEach(publicId => {
+          formData.append("existingMediaPublicIds", publicId);
+        });
+
+        if (
+          existingMedia.length === 0 &&
+          existingMediaPublicIds.length === 0
+        ) {
+          formData.append("existingMedia", JSON.stringify([]));
+          formData.append("existingMediaPublicIds", JSON.stringify([]));
+        }
       }
 
       if (mediaFiles.length > 0) {
@@ -225,14 +301,32 @@ const CreatePostEditor: React.FC<CreatePostEditorProps> = ({ onPostCreated, edit
         if (onCloseEdit) onCloseEdit();
       } else {
         const newPost = await PostsAPI.createPost(formData);
-        toast.success("Post published successfully!");
+        if (postStatus === "draft") {
+          toast.success("Draft saved successfully!");
+        } else if (postStatus === "scheduled") {
+          toast.success("Post scheduled successfully!");
+        } else {
+          toast.success("Post published successfully!");
+        }
         resetForm();
         if (onPostCreated) onPostCreated(newPost);
       }
 
     } catch (error: unknown) {
       const axiosError = error as AxiosError<ApiError>;
-      toast.error(axiosError.response?.data?.message || `Failed to ${isEditMode ? 'update' : 'publish'} post.`);
+      const actionText =
+        postStatus === "draft"
+          ? "save draft"
+          : postStatus === "scheduled"
+            ? "schedule post"
+            : isEditMode
+              ? "update post"
+              : "publish post";
+
+      toast.error(
+        axiosError.response?.data?.message ||
+          `Failed to ${actionText}.`
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -242,8 +336,8 @@ const CreatePostEditor: React.FC<CreatePostEditorProps> = ({ onPostCreated, edit
     if (e.target.files && e.target.files.length > 0) {
       const newFiles = Array.from(e.target.files);
       
-      if (mediaFiles.length + existingMedia.length + newFiles.length > 4) {
-        toast.warning("You can only attach a maximum of 4 images per post.");
+      if (mediaFiles.length + existingMedia.length + newFiles.length > 10) {
+        toast.warning("You can only attach a maximum of 10 images per post.");
         return;
       }
 
@@ -253,6 +347,36 @@ const CreatePostEditor: React.FC<CreatePostEditorProps> = ({ onPostCreated, edit
     }
   };
 
+  const handleBannerUpload = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+
+    if (!file) return;
+
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Only JPG, PNG, GIF, and WEBP images are allowed.");
+      e.target.value = "";
+      return;
+    }
+
+    if (bannerPreview && !editPost?.coverImageUrl) {
+      URL.revokeObjectURL(bannerPreview);
+    }
+
+    setBannerFile(file);
+    setBannerPreview(URL.createObjectURL(file));
+
+    e.target.value = "";
+  };
+
   const removeNewMedia = (indexToRemove: number) => {
     URL.revokeObjectURL(mediaPreviews[indexToRemove]); 
     setMediaFiles(prev => prev.filter((_, i) => i !== indexToRemove));
@@ -260,7 +384,13 @@ const CreatePostEditor: React.FC<CreatePostEditorProps> = ({ onPostCreated, edit
   };
 
   const removeExistingMedia = (indexToRemove: number) => {
-    setExistingMedia(prev => prev.filter((_, i) => i !== indexToRemove));
+    setExistingMedia(prev =>
+      prev.filter((_, i) => i !== indexToRemove)
+    );
+
+    setExistingMediaPublicIds(prev =>
+      prev.filter((_, i) => i !== indexToRemove)
+    );
   };
 
   const getLanguageExtension = (lang: string) => {
@@ -326,9 +456,79 @@ const CreatePostEditor: React.FC<CreatePostEditorProps> = ({ onPostCreated, edit
                   type="text" placeholder="Post Title..." value={title} onChange={(e) => setTitle(e.target.value)}
                   style={{ width: "100%", padding: "16px 20px", backgroundColor: "transparent", border: "none", borderBottom: `1px solid ${borderColor}`, color: textColor, outline: "none", fontSize: "1.4rem", fontWeight: 800, fontFamily: "inherit" }}
                 />
+                <input
+                  type="text"
+                  placeholder="Add a subtitle..."
+                  value={subtitle}
+                  onChange={(e) => setSubtitle(e.target.value)}
+                  maxLength={300}
+                  style={{
+                    width: "100%",
+                    padding: "10px 20px",
+                    backgroundColor: "transparent",
+                    border: "none",
+                    borderBottom: `1px solid ${borderColor}`,
+                    color: mutedText,
+                    outline: "none",
+                    fontSize: "0.95rem",
+                    fontWeight: 500,
+                    fontFamily: "inherit",
+                  }}
+                />
 
                 <div style={{ padding: "16px 20px" }}>
                   <div style={{ minHeight: "100px", cursor: "text" }} onClick={() => editor?.commands.focus()}>{editor && <EditorContent editor={editor} />}</div>
+                  {bannerPreview && (
+                    <div
+                      style={{
+                        marginTop: "16px",
+                        position: "relative",
+                        borderRadius: "8px",
+                        overflow: "hidden",
+                        border: `1px solid ${borderColor}`,
+                      }}
+                    >
+                      <img
+                        src={bannerPreview}
+                        alt="Cover preview"
+                        style={{
+                          width: "100%",
+                          height: "180px",
+                          objectFit: "cover",
+                          display: "block",
+                        }}
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (bannerFile && bannerPreview) {
+                            URL.revokeObjectURL(bannerPreview);
+                          }
+
+                          setBannerFile(null);
+                          setBannerPreview(editPost?.coverImageUrl || null);
+                        }}
+                        style={{
+                          position: "absolute",
+                          top: "8px",
+                          right: "8px",
+                          background: "rgba(0,0,0,0.6)",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: "50%",
+                          width: "28px",
+                          height: "28px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  )}
 
                   {codeSnippets.map((snippet) => (
                     <div key={snippet.id} style={{ borderRadius: "8px", overflow: "hidden", border: `1px solid ${borderColor}`, marginTop: "16px", backgroundColor: isDark ? "#0d1117" : "#f8fafc", boxShadow: "0 4px 6px rgba(0,0,0,0.1)" }}>
@@ -396,6 +596,48 @@ const CreatePostEditor: React.FC<CreatePostEditorProps> = ({ onPostCreated, edit
                 </div>
               </div>
 
+              {postStatus === "scheduled" && (
+                <div
+                  style={{
+                    marginTop: "16px",
+                    padding: "12px 20px 0",
+                  }}
+                >
+                  <label
+                    htmlFor="scheduled-at"
+                    style={{
+                      display: "block",
+                      fontSize: "0.8rem",
+                      fontWeight: 600,
+                      color: mutedText,
+                      marginBottom: "6px",
+                    }}
+                  >
+                    Schedule publication
+                  </label>
+
+                  <input
+                    id="scheduled-at"
+                    type="datetime-local"
+                    value={scheduledAt}
+                    onChange={(e) => setScheduledAt(e.target.value)}
+                    min={new Date().toISOString().slice(0, 16)}
+                    disabled={isSubmitting}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: "8px",
+                      border: `1px solid ${borderColor}`,
+                      backgroundColor: inputBg,
+                      color: textColor,
+                      outline: "none",
+                      fontFamily: "inherit",
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Footer */}
               <div style={{ padding: "1rem", borderTop: `1px solid ${borderColor}`, display: "flex", justifyContent: "space-between" }}>
                 
                 <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
@@ -405,14 +647,103 @@ const CreatePostEditor: React.FC<CreatePostEditorProps> = ({ onPostCreated, edit
                   
                   <div style={{ width: "1px", height: "20px", backgroundColor: borderColor, margin: "0 4px" }} />
                   
+                  <input
+                    type="file"
+                    id="banner-image-upload"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    style={{ display: "none" }}
+                    onChange={handleBannerUpload}
+                  />
+
+                  <label
+                    htmlFor="banner-image-upload"
+                    style={{
+                      cursor: "pointer",
+                      color: bannerFile || editPost?.coverImageUrl
+                        ? accentColor
+                        : mutedText,
+                      display: "flex",
+                      alignItems: "center",
+                    }}
+                    title="Set cover image"
+                  >
+                    <ImageIcon size={20} />
+                  </label>
+
                   <input type="file" id="modal-image-upload" accept="image/*" multiple style={{ display: "none" }} onChange={handleMediaUpload} />
                   <label htmlFor="modal-image-upload" style={{ cursor: "pointer", color: mutedText }}><ImageIcon size={20} /></label>
                   <button type="button" onClick={() => setCodeSnippets([...codeSnippets, { id: Date.now().toString(), language: "typescript", code: "" }])} style={{ background: "none", border: "none", color: mutedText, cursor: "pointer" }}><CodeXml size={20} /></button>
                 </div>
 
-                <button onClick={handleSubmit} disabled={isSubmitting} style={{ backgroundColor: accentColor, color: "#fff", border: "none", padding: "8px 24px", borderRadius: "24px", fontWeight: 600, cursor: isSubmitting ? "not-allowed" : "pointer", opacity: isSubmitting ? 0.5 : 1, display: "flex", alignItems: "center", gap: "8px" }}>
-                  {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : (isEditMode ? "Save Changes" : "Publish")} {isEditMode ? <Save size={16} /> : <Send size={16} />}
-                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <select
+                    value={postStatus}
+                    onChange={(e) => {
+                      const newStatus = e.target.value as
+                        | "draft"
+                        | "scheduled"
+                        | "published";
+
+                      setPostStatus(newStatus);
+
+                      if (newStatus !== "scheduled") {
+                        setScheduledAt("");
+                      }
+                    }}
+                    disabled={isSubmitting}
+                    style={{
+                      backgroundColor: inputBg,
+                      color: textColor,
+                      border: `1px solid ${borderColor}`,
+                      borderRadius: "8px",
+                      padding: "8px 10px",
+                      outline: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="scheduled">Schedule</option>
+                    <option value="published">Publish</option>
+                  </select>
+
+                  <button
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                    style={{
+                      backgroundColor: accentColor,
+                      color: "#fff",
+                      border: "none",
+                      padding: "8px 24px",
+                      borderRadius: "24px",
+                      fontWeight: 600,
+                      cursor: isSubmitting ? "not-allowed" : "pointer",
+                      opacity: isSubmitting ? 0.5 : 1,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                    }}
+                  >
+                    {isSubmitting ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <>
+                        {postStatus === "draft"
+                          ? "Save Draft"
+                          : postStatus === "scheduled"
+                            ? "Schedule"
+                            : isEditMode
+                              ? "Save Changes"
+                              : "Publish"}
+
+                        {postStatus === "draft" ? (
+                          <Save size={16} />
+                        ) : (
+                          <Send size={16} />
+                        )}
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
 
             </motion.div>

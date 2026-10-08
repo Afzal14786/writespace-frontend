@@ -11,6 +11,7 @@ import ProtectedLayout from "./components/layout/ProtectedLayout";
 import HomePage from "./pages/home/HomePage";
 import PostDetailPage from "./pages/home/PostDetailPage";
 import SettingsPage from "./pages/settings/SettingsPage";
+import PublicProfileLayout from "./components/layout/PublicProfileLayout";
 
 // Context & Providers
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
@@ -80,18 +81,19 @@ const AppContent: React.FC = () => {
         <Route path="/auth/success" element={<OAuthSuccess />} />
 
         {/* --- Completely Protected App Area --- */}
+        <Route path="/profile/:username" element={<PublicProfileLayout />}>
+          <Route index element={<Profile />} />
+        </Route>
+
         <Route element={<ProtectedLayout />}>
           <Route path="/home" element={<HomePage />} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/profile/:username" element={<Profile />} />
           <Route path="/post/:postId" element={<PostDetailPage />} />
-          
-          {/* Placeholders for future routes */}
           <Route path="/messages" element={<div className="p-8 text-gray-900 dark:text-white">Messages</div>} />
           <Route path="/notifications" element={<div className="p-8 text-gray-900 dark:text-white">Notifications</div>} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
-
+        
         {/* Fallback Route */}
         <Route path="*" element={<Navigate to="/home" replace />} />
       </Routes>
