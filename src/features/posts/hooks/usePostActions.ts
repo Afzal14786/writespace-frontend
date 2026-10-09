@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { PostsAPI } from "@/features/posts/api/posts.api";
 import { InteractionsAPI } from "@/features/interactions/interactions.api";
 import { UsersAPI } from "@/features/users/api/users.api";
 
@@ -27,7 +26,11 @@ export function usePostActions({
   const [isFollowingLoading, setIsFollowingLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Keep the follow state aligned with updated server-provided props.
+  // Sync server-provided state when the post or its data changes.
+  useEffect(() => {
+    setIsLiked(initialIsLiked);
+  }, [postId, initialIsLiked]);
+
   useEffect(() => {
     setIsFollowing(initialIsFollowing);
   }, [initialIsFollowing]);
@@ -38,11 +41,12 @@ export function usePostActions({
     setIsLiking(true);
 
     try {
-      const result = await PostsAPI.likePost(postId);
-      const liked = result.status === "liked";
+      const result = isLiked
+        ? await InteractionsAPI.removePostReaction(postId)
+        : await InteractionsAPI.setPostReaction(postId, "like");
 
-      setIsLiked(liked);
-      return liked;
+      setIsLiked(result.isReacted);
+      return result.isReacted;
     } finally {
       setIsLiking(false);
     }
@@ -58,10 +62,7 @@ export function usePostActions({
     setIsFollowingLoading(true);
 
     try {
-      // The backend uses one POST endpoint to toggle follow/unfollow.
       const result = await UsersAPI.toggleFollow(authorId);
-
-      // Update local state only after the backend confirms the result.
       setIsFollowing(result.status === "followed");
     } finally {
       setIsFollowingLoading(false);
@@ -87,7 +88,7 @@ export function usePostActions({
       setIsSaving(false);
     }
   }, [postId, isSaved, isSaving]);
-  
+
   return {
     isLiked,
     isFollowing,
