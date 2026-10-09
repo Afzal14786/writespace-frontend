@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Loader2 } from "lucide-react";
-import { useTheme } from "../../context/ThemeContext";
-import { UsersAPI } from "../../api/users.api";
-import type { UserSearchResult } from "../../api/users.api";
+import { useTheme } from "@/app/providers/ThemeProvider";
+import { UsersAPI } from "@/features/users/api/users.api";
+import type { UserSearchResult } from "@/features/users/api/users.api";
 
 interface SearchComponentProps {
   isMobile?: boolean;

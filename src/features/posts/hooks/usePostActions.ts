@@ -1,0 +1,100 @@
+import { useCallback, useEffect, useState } from "react";
+
+import { PostsAPI } from "@/features/posts/api/posts.api";
+import { InteractionsAPI } from "@/features/interactions/interactions.api";
+import { UsersAPI } from "@/features/users/api/users.api";
+
+interface UsePostActionsOptions {
+  postId: string;
+  authorId: string;
+  initialIsLiked?: boolean;
+  initialIsFollowing?: boolean;
+  initialIsSaved?: boolean;
+}
+
+export function usePostActions({
+  postId,
+  authorId,
+  initialIsLiked = false,
+  initialIsFollowing = false,
+  initialIsSaved = false,
+}: UsePostActionsOptions) {
+  const [isLiked, setIsLiked] = useState(initialIsLiked);
+  const [isFollowing, setIsFollowing] = useState(initialIsFollowing);
+  const [isSaved, setIsSaved] = useState(initialIsSaved);
+
+  const [isLiking, setIsLiking] = useState(false);
+  const [isFollowingLoading, setIsFollowingLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Keep the follow state aligned with updated server-provided props.
+  useEffect(() => {
+    setIsFollowing(initialIsFollowing);
+  }, [initialIsFollowing]);
+
+  const toggleLike = useCallback(async (): Promise<boolean> => {
+    if (isLiking) return isLiked;
+
+    setIsLiking(true);
+
+    try {
+      const result = await PostsAPI.likePost(postId);
+      const liked = result.status === "liked";
+
+      setIsLiked(liked);
+      return liked;
+    } finally {
+      setIsLiking(false);
+    }
+  }, [postId, isLiked, isLiking]);
+
+  const toggleFollow = useCallback(async () => {
+    if (isFollowingLoading) return;
+
+    if (!authorId) {
+      throw new Error("Cannot follow a user without an author ID.");
+    }
+
+    setIsFollowingLoading(true);
+
+    try {
+      // The backend uses one POST endpoint to toggle follow/unfollow.
+      const result = await UsersAPI.toggleFollow(authorId);
+
+      // Update local state only after the backend confirms the result.
+      setIsFollowing(result.status === "followed");
+    } finally {
+      setIsFollowingLoading(false);
+    }
+  }, [authorId, isFollowingLoading]);
+
+  const toggleSave = useCallback(async () => {
+    if (isSaving) return;
+
+    setIsSaving(true);
+
+    try {
+      if (isSaved) {
+        await InteractionsAPI.unsavePost(postId);
+        setIsSaved(false);
+      } else {
+        await InteractionsAPI.savePost(postId);
+        setIsSaved(true);
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  }, [postId, isSaved, isSaving]);
+
+  return {
+    isLiked,
+    isFollowing,
+    isSaved,
+    isLiking,
+    isFollowingLoading,
+    isSaving,
+    toggleLike,
+    toggleFollow,
+    toggleSave,
+  };
+}
