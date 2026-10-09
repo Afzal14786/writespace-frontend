@@ -6,7 +6,7 @@ import { Loader2 } from "lucide-react";
 // Auth & Layout Components
 import AuthPage from "./pages/auth/AuthPage";
 import OAuthSuccess from "./pages/auth/OAuthSuccess";
-import Profile from "./components/users/Profile";
+import Profile from "@/features/users/components/profile/Profile";
 import ProtectedLayout from "./components/layout/ProtectedLayout";
 import HomePage from "./pages/home/HomePage";
 import PostDetailPage from "./pages/home/PostDetailPage";
@@ -14,8 +14,8 @@ import SettingsPage from "./pages/settings/SettingsPage";
 import PublicProfileLayout from "./components/layout/PublicProfileLayout";
 
 // Context & Providers
-import { ThemeProvider, useTheme } from "./context/ThemeContext";
-import { AuthProvider, useAuth } from "./context/AuthContext";
+import { ThemeProvider, useTheme } from "@/app/providers/ThemeProvider";
+import { AuthProvider, useAuth } from "@/app/providers/AuthProvider";
 
 // Notifications
 import { ToastContainer } from "react-toastify";

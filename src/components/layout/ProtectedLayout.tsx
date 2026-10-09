@@ -1,7 +1,7 @@
 import React from "react";
 import { Navigate, Outlet } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
-import { useTheme } from "../../context/ThemeContext"; // Added theme context
+import { useAuth } from "@/app/providers/AuthProvider";
+import { useTheme } from "@/app/providers/ThemeProvider"; // Added theme context
 import { Loader2 } from "lucide-react";
 import Header from "./Header";
 

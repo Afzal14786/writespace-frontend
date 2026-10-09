@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Heart, MessageSquare, UserPlus, Sparkles, Repeat, CheckCheck, Loader2, Bell } from "lucide-react";
-import { NotificationsAPI } from "../../api/notifications.api";
-import type { AppNotification, NotificationType } from "../../types/api.types";
-import { useTheme } from "../../context/ThemeContext";
+import { NotificationsAPI } from "@/features/notifications/notifications.api";
+import type { AppNotification, NotificationType } from "@/types/api.types";
+import { useTheme } from "@/app/providers/ThemeProvider";
 
 interface NotificationDropdownProps {
   isOpen: boolean;

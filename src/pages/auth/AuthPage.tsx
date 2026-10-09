@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
-import LoginComponent from "../../components/auth/LoginComponent";
-import RegisterComponent from "../../components/auth/RegisterComponent";
-import ForgotPasswordComponent from "../../components/auth/ForgotPasswordComponent";
-import ResetPasswordComponent from "../../components/auth/ResetPasswordComponent";
-import AuthBranding from "../../components/auth/AuthBranding";
+import LoginComponent from "@/features/auth/components/LoginComponent";
+import RegisterComponent from "@/features/auth/components/RegisterComponent";
+import ForgotPasswordComponent from "@/features/auth/components/ForgotPasswordComponent";
+import ResetPasswordComponent from "@/features/auth/components/ResetPasswordComponent";
+import AuthBranding from "@/features/auth/components/AuthBranding";
 import Footer from "../../components/layout/Footer";
 
 type AuthMode = 'login' | 'register' | 'forgot' | 'reset';

@@ -13,11 +13,11 @@ import {
   ArrowLeft,
   ChevronDown,
 } from "lucide-react";
-import { useTheme } from "../../context/ThemeContext";
-import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "@/app/providers/ThemeProvider";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { toast } from "react-toastify";
 
-import { NotificationsAPI } from "../../api/notifications.api";
+import { NotificationsAPI } from "@/features/notifications/notifications.api";
 import NotificationDropdown from "./NotificationDropdown";
 import SearchComponent from "./SearchComponent";
 

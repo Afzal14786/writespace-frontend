@@ -1,6 +1,6 @@
 import React from "react";
 import Header from "./Header";
-import { useTheme } from "../../context/ThemeContext";
+import { useTheme } from "@/app/providers/ThemeProvider";
 import { Outlet } from "react-router-dom";
 
 const PublicProfileLayout: React.FC = () => {

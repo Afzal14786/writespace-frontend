@@ -1,5 +1,5 @@
 import React from "react";
-import { useTheme } from "../../context/ThemeContext";
+import { useTheme } from "@/app/providers/ThemeProvider";
 
 interface FooterProps {
   variant?: 'auth' | 'app' | 'sidebar';

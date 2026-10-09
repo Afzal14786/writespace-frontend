@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { Shield, Code2, Bell, Monitor, Eye } from "lucide-react";
-import { useTheme } from "../../context/ThemeContext";
-import { AccountSecurityTab } from "../../components/settings/AccountSecurityTab";
-import { IntegrationsTab, NotificationsTab, AppearanceTab, PrivacyTab } from "../../components/settings/OtherSettingsTabs";
+import { useTheme } from "@/app/providers/ThemeProvider";
+import { AccountSecurityTab } from "@/features/settings/components/AccountSecurityTab";
+import { IntegrationsTab, NotificationsTab, AppearanceTab, PrivacyTab } from "@/features/settings/components/OtherSettingsTabs";
 
 type TabId = "account" | "integrations" | "notifications" | "appearance" | "privacy";
 

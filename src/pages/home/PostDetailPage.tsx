@@ -1,146 +1,132 @@
-import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2, AlertCircle } from "lucide-react";
-import { PostsAPI } from "../../api/posts.api";
-import PostComponent from "../../components/home/PostComponent";
-import { useTheme } from "../../context/ThemeContext";
+import { useCallback, useEffect, useState } from "react";
+import { AlertCircle, ArrowLeft, LoaderCircle, RefreshCw } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
 
-import type { Post } from "../../types/api.types";
+import { useAuth } from "@/app/providers/AuthProvider";
+import PostCard from "@/features/posts/components/PostCard";
+import { PostsAPI } from "@/features/posts/api/posts.api";
+import type { Post } from "@/features/posts/types/post.types";
 
-interface ApiErrorResponse {
-  response?: {
-    data?: {
-      message?: string;
-    };
-  };
-}
-
-const PostDetailPage: React.FC = () => {
-  const { postId } = useParams<{ postId: string }>();
+export default function PostDetailPage() {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
+  const { user } = useAuth();
 
   const [post, setPost] = useState<Post | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const bgColor = isDark ? "#0f172a" : "#f8fafc";
-  const textColor = isDark ? "#f1f5f9" : "#0f172a";
-  const borderColor = isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.08)";
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
-    if (!postId) return;
-
-    let isMounted = true;
+    let cancelled = false;
 
     const fetchPost = async () => {
+      if (!id) {
+        setPost(null);
+        setError("The post URL is missing a post ID.");
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
       setError(null);
+
       try {
-        const data = await PostsAPI.getPostById(postId);
-        if (isMounted) {
-          setPost(data);
-          setIsLoading(false);
+        const result = await PostsAPI.getPostById(id);
+
+        if (!cancelled) {
+          setPost(result);
         }
       } catch (err: unknown) {
-        console.error("Failed to fetch post:", err);
-        if (isMounted) {
-          const apiError = err as ApiErrorResponse;
-          const errorMessage = 
-            apiError.response?.data?.message || 
-            (err instanceof Error ? err.message : "Post not found or has been deleted.");
-            
-          setError(errorMessage);
+        if (!cancelled) {
+          setPost(null);
+          setError(
+            err instanceof Error
+              ? err.message
+              : "We couldn't load this post. Please try again.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
           setIsLoading(false);
         }
       }
     };
 
-    fetchPost();
+    void fetchPost();
 
     return () => {
-      isMounted = false;
+      cancelled = true;
     };
-  }, [postId]);
+  }, [id, retryKey]);
+
+  const handlePostDeleted = useCallback(() => {
+    navigate("/", { replace: true });
+  }, [navigate]);
+
+  const handleEditPost = useCallback((_post: Post) => {
+    // The edit flow will be connected to CreatePostEditor
+    // in the post creation/editing batch.
+  }, []);
 
   return (
-    <div 
-      style={{ 
-        minHeight: "100vh", 
-        backgroundColor: bgColor, 
-        color: textColor,
-        paddingTop: "64px", 
-        display: "flex",
-        justifyContent: "center"
-      }}
-    >
-      <div 
-        style={{ 
-          width: "100%", 
-          maxWidth: "680px", 
-          borderLeft: `1px solid ${borderColor}`,
-          borderRight: `1px solid ${borderColor}`,
-          minHeight: "calc(100vh - 64px)",
-          backgroundColor: isDark ? "#0f172a" : "#ffffff"
-        }}
-      >
-        {/* Sticky Back Navigation Header */}
-        <div 
-          style={{ 
-            position: "sticky", 
-            top: "64px", 
-            zIndex: 10,
-            display: "flex", 
-            alignItems: "center", 
-            gap: "16px", 
-            padding: "12px 16px",
-            backgroundColor: isDark ? "rgba(15, 23, 42, 0.85)" : "rgba(255, 255, 255, 0.85)",
-            backdropFilter: "blur(12px)",
-            borderBottom: `1px solid ${borderColor}`,
-            cursor: "pointer",
-            transition: "background-color 0.2s"
-          }}
-          onClick={() => navigate(-1)} 
+    <main className="min-h-screen bg-gray-50 px-4 py-6 dark:bg-gray-950 sm:px-6">
+      <div className="mx-auto w-full max-w-3xl">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="mb-5 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-200 dark:text-gray-200 dark:hover:bg-gray-800"
         >
-          <div 
-            style={{
-              padding: "8px",
-              borderRadius: "50%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              transition: "background-color 0.2s"
-            }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)"}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+          <ArrowLeft size={18} />
+          Back
+        </button>
+
+        {isLoading && (
+          <div
+            className="flex min-h-64 flex-col items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white p-8 text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+            role="status"
+            aria-live="polite"
           >
-            <ArrowLeft size={20} color={textColor} />
+            <LoaderCircle size={30} className="animate-spin" />
+            <p>Loading post...</p>
           </div>
-          <h2 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 700 }}>Post</h2>
-        </div>
+        )}
 
-        {/* Content Area */}
-        <div style={{ padding: "16px 0" }}>
-          {isLoading ? (
-            <div style={{ display: "flex", justifyContent: "center", padding: "40px 0" }}>
-              <Loader2 className="animate-spin" size={32} color="#6366f1" />
-            </div>
-          ) : error ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "60px 20px", textAlign: "center", color: isDark ? "#94a3b8" : "#64748b" }}>
-              <AlertCircle size={48} style={{ marginBottom: "16px", opacity: 0.5 }} />
-              <h3 style={{ margin: "0 0 8px 0", color: textColor }}>Post unavailable</h3>
-              <p style={{ margin: 0 }}>{error}</p>
-            </div>
-          ) : post ? (
-            <div style={{ padding: "0 16px" }}>
-               <PostComponent post={post} />
-            </div>
-          ) : null}
-        </div>
+        {!isLoading && error && (
+          <section
+            className="rounded-xl border border-red-200 bg-white p-6 text-center dark:border-red-900 dark:bg-gray-900"
+            role="alert"
+          >
+            <AlertCircle size={32} className="mx-auto mb-3 text-red-500" />
+
+            <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Unable to load this post
+            </h1>
+
+            <p className="mt-2 break-words text-sm text-gray-600 dark:text-gray-300">
+              {error}
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setRetryKey((current) => current + 1)}
+              className="mt-5 inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+            >
+              <RefreshCw size={16} />
+              Try again
+            </button>
+          </section>
+        )}
+
+        {!isLoading && !error && post && (
+          <PostCard
+            post={post}
+            currentUserId={user?.id}
+            onEdit={handleEditPost}
+            onPostDeleted={handlePostDeleted}
+          />
+        )}
       </div>
-    </div>
+    </main>
   );
-};
-
-export default PostDetailPage;
+}
