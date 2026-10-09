@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Check,
   Heart,
@@ -52,6 +52,8 @@ export default function CommentThread({
     comment.isReacted === true && comment.reactionType === "like",
   );
   const [likeCount, setLikeCount] = useState(comment.likeCount ?? 0);
+  const [isReacting, setIsReacting] = useState(false);
+  const reactingRef = useRef(false);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(comment.content);
@@ -67,6 +69,7 @@ export default function CommentThread({
   const [showReplies, setShowReplies] = useState(false);
   const [isLoadingReplies, setIsLoadingReplies] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const loadingRepliesRef = useRef(false);
 
   const handleToggleLike = async () => {
     if (!authUser) {
@@ -74,12 +77,18 @@ export default function CommentThread({
       return;
     }
 
+    // Ref prevents two rapid clicks before React updates the state.
+    if (reactingRef.current) return;
+
+    reactingRef.current = true;
+    setIsReacting(true);
+
     const previousIsLiked = isLiked;
     const previousLikeCount = likeCount;
     const nextIsLiked = !previousIsLiked;
 
     setIsLiked(nextIsLiked);
-    setLikeCount((count) => (nextIsLiked ? count + 1 : Math.max(count - 1, 0)));
+    setLikeCount((count) => Math.max(0, count + (nextIsLiked ? 1 : -1)));
 
     try {
       const result = nextIsLiked
@@ -89,18 +98,27 @@ export default function CommentThread({
       const backendLiked = result.isReacted && result.reactionType === "like";
 
       setIsLiked(backendLiked);
+
+      // ReactionResult has no likeCount field. Reconcile only the
+      // optimistic difference if the server's reaction state differs.
+      if (backendLiked !== nextIsLiked) {
+        setLikeCount((count) => Math.max(0, count + (backendLiked ? 1 : -1)));
+      }
     } catch (error: unknown) {
       console.error("Error while updating comment reaction:", error);
-
       setIsLiked(previousIsLiked);
       setLikeCount(previousLikeCount);
       toast.error("Failed to update comment reaction");
+    } finally {
+      reactingRef.current = false;
+      setIsReacting(false);
     }
   };
 
   const handleFetchReplies = async (cursor?: string) => {
-    if (isLoadingReplies) return;
+    if (loadingRepliesRef.current) return;
 
+    loadingRepliesRef.current = true;
     setIsLoadingReplies(true);
     setShowReplies(true);
 
@@ -110,23 +128,22 @@ export default function CommentThread({
         cursor,
       );
 
-      setReplies((previous) =>
-        cursor
-          ? [
-              ...previous,
-              ...response.replies.filter(
-                (reply) =>
-                  !previous.some((existing) => existing.id === reply.id),
-              ),
-            ]
-          : response.replies,
-      );
+      setReplies((previous) => {
+        if (!cursor) return response.replies;
+
+        const existingIds = new Set(previous.map((reply) => reply.id));
+        return [
+          ...previous,
+          ...response.replies.filter((reply) => !existingIds.has(reply.id)),
+        ];
+      });
 
       setNextCursor(response.nextCursor);
     } catch (error: unknown) {
       console.error("Failed to load replies:", error);
       toast.error("Failed to load replies");
     } finally {
+      loadingRepliesRef.current = false;
       setIsLoadingReplies(false);
     }
   };
@@ -134,7 +151,14 @@ export default function CommentThread({
   const handleSubmitReply = async () => {
     const content = replyText.trim();
 
-    if (!content || isSubmittingReply) return;
+    if (isSubmittingReply) return;
+
+    if (!authUser) {
+      toast.info("Please sign in to reply");
+      return;
+    }
+
+    if (!content) return;
 
     setIsSubmittingReply(true);
 
@@ -149,6 +173,7 @@ export default function CommentThread({
         newReply,
         ...previous.filter((reply) => reply.id !== newReply.id),
       ]);
+
       setReplyText("");
       setIsReplying(false);
       setShowReplies(true);
@@ -322,9 +347,10 @@ export default function CommentThread({
           <button
             type="button"
             onClick={() => void handleToggleLike()}
+            disabled={isReacting}
             aria-pressed={isLiked}
             aria-label={`${isLiked ? "Unlike" : "Like"} comment`}
-            className={`${actionButtonClass} ${
+            className={`${actionButtonClass} disabled:cursor-not-allowed disabled:opacity-50 ${
               isLiked ? "text-blue-700 dark:text-blue-300" : ""
             }`}
           >
