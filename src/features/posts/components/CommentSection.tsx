@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { LoaderCircle, Send, User } from "lucide-react";
 import { toast } from "react-toastify";
 
@@ -24,13 +24,22 @@ export default function CommentSection({ postId }: CommentSectionProps) {
   const [commentText, setCommentText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Prevent duplicate pagination requests and ignore stale fetch results.
+  const loadingMoreRef = useRef(false);
+  const requestGenerationRef = useRef(0);
+
   const fetchTopLevelComments = useCallback(
     async (cursor?: string) => {
+      if (cursor && loadingMoreRef.current) return;
+
       if (cursor) {
+        loadingMoreRef.current = true;
         setIsLoadingMore(true);
       } else {
         setIsLoading(true);
       }
+
+      const requestGeneration = requestGenerationRef.current;
 
       try {
         const response = await InteractionsAPI.getTopLevelComments(
@@ -38,38 +47,71 @@ export default function CommentSection({ postId }: CommentSectionProps) {
           cursor,
         );
 
-        setComments((previous) =>
-          cursor
-            ? [
-                ...previous,
-                ...response.comments.filter(
-                  (comment) =>
-                    !previous.some((existing) => existing.id === comment.id),
-                ),
-              ]
-            : response.comments,
-        );
+        // Ignore results belonging to an earlier post/request generation.
+        if (requestGeneration !== requestGenerationRef.current) return;
+
+        setComments((previous) => {
+          if (!cursor) return response.comments;
+
+          const existingIds = new Set(previous.map((comment) => comment.id));
+          return [
+            ...previous,
+            ...response.comments.filter(
+              (comment) => !existingIds.has(comment.id),
+            ),
+          ];
+        });
 
         setNextCursor(response.nextCursor);
       } catch (error: unknown) {
+        if (requestGeneration !== requestGenerationRef.current) return;
+
         console.error("Failed to fetch comments", error);
         toast.error("Failed to load comments");
       } finally {
-        setIsLoading(false);
-        setIsLoadingMore(false);
+        if (requestGeneration === requestGenerationRef.current) {
+          setIsLoading(false);
+          setIsLoadingMore(false);
+        }
+
+        if (cursor) {
+          loadingMoreRef.current = false;
+        }
       }
     },
     [postId],
   );
 
   useEffect(() => {
+    requestGenerationRef.current += 1;
+    loadingMoreRef.current = false;
+
+    setComments([]);
+    setNextCursor(null);
+    setIsLoading(true);
+    setIsLoadingMore(false);
+    setCommentText("");
+
     void fetchTopLevelComments();
+
+    return () => {
+      // Any outstanding request from this effect becomes stale.
+      requestGenerationRef.current += 1;
+      loadingMoreRef.current = false;
+    };
   }, [fetchTopLevelComments]);
 
   const handleAddTopLevelComment = async () => {
     const content = commentText.trim();
 
-    if (!content || isSubmitting) return;
+    if (isSubmitting) return;
+
+    if (!authUser) {
+      toast.info("Please sign in to comment");
+      return;
+    }
+
+    if (!content) return;
 
     setIsSubmitting(true);
 

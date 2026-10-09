@@ -64,7 +64,7 @@ export default function PostHeader({
 
             {username && (
               <Link
-                to={`/users/${encodeURIComponent(username)}`}
+                to={`/profile/${encodeURIComponent(username)}`}
                 className="truncate text-sm text-blue-600 transition hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
               >
                 @{username}

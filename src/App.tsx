@@ -88,7 +88,7 @@ const AppContent: React.FC = () => {
         <Route element={<ProtectedLayout />}>
           <Route path="/home" element={<HomePage />} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/post/:postId" element={<PostDetailPage />} />
+          <Route path="/post/:id" element={<PostDetailPage />} />
           <Route path="/messages" element={<div className="p-8 text-gray-900 dark:text-white">Messages</div>} />
           <Route path="/notifications" element={<div className="p-8 text-gray-900 dark:text-white">Notifications</div>} />
           <Route path="/settings" element={<SettingsPage />} />

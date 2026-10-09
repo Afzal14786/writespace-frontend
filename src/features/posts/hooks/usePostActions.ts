@@ -68,24 +68,26 @@ export function usePostActions({
     }
   }, [authorId, isFollowingLoading]);
 
-  const toggleSave = useCallback(async () => {
-    if (isSaving) return;
+  const toggleSave = useCallback(async (): Promise<boolean> => {
+    if (isSaving) return isSaved;
 
     setIsSaving(true);
 
     try {
       if (isSaved) {
-        await InteractionsAPI.unsavePost(postId);
-        setIsSaved(false);
-      } else {
-        await InteractionsAPI.savePost(postId);
-        setIsSaved(true);
+        const result = await InteractionsAPI.unsavePost(postId);
+        setIsSaved(result.isSaved);
+        return result.isSaved;
       }
+
+      const result = await InteractionsAPI.savePost(postId);
+      setIsSaved(result.isSaved);
+      return result.isSaved;
     } finally {
       setIsSaving(false);
     }
   }, [postId, isSaved, isSaving]);
-
+  
   return {
     isLiked,
     isFollowing,
