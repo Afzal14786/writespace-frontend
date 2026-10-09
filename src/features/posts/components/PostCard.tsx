@@ -19,6 +19,7 @@ interface PostCardProps {
   currentUserId?: string;
   initialIsFollowing?: boolean;
   initialIsSaved?: boolean;
+  viewMode?: "feed" | "detail";
   onEdit?: (post: Post) => void;
   onPostDeleted?: (postId: string) => void;
 }
@@ -28,6 +29,7 @@ export default function PostCard({
   currentUserId,
   initialIsFollowing = false,
   initialIsSaved = false,
+  viewMode = "feed",
   onEdit,
   onPostDeleted,
 }: PostCardProps) {
@@ -42,6 +44,7 @@ export default function PostCard({
   const authorId = post.author?.id ?? "";
   const isOwner = Boolean(currentUserId && currentUserId === authorId);
   const canInteract = Boolean(currentUserId);
+  const isDetailView = viewMode === "detail";
 
   const {
     isLiked,
@@ -61,8 +64,6 @@ export default function PostCard({
     initialIsSaved,
   });
 
-  // Keep the displayed count aligned when the feed supplies a new count
-  // or this component receives a different post.
   useEffect(() => {
     setLikeCount(post.likeCount);
   }, [post.id, post.likeCount]);
@@ -74,7 +75,6 @@ export default function PostCard({
       const wasLiked = isLiked;
       const isLikedAfterRequest = await toggleLike();
 
-      // Update the count only when the confirmed state actually changes.
       if (isLikedAfterRequest !== wasLiked) {
         setLikeCount((count) =>
           Math.max(0, count + (isLikedAfterRequest ? 1 : -1)),
@@ -140,7 +140,11 @@ export default function PostCard({
   };
 
   return (
-    <article className="min-w-0 rounded-2xl border border-blue-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+    <article
+      className={`min-w-0 rounded-2xl border border-blue-100 bg-white shadow-sm transition-shadow dark:border-slate-800 dark:bg-slate-900 ${
+        isDetailView ? "p-4 sm:p-6" : "p-4 hover:shadow-md sm:p-5"
+      }`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <PostHeader
@@ -164,9 +168,15 @@ export default function PostCard({
         />
       </div>
 
-      <div className="mt-4">
-        <PostContext post={post} />
+      <div className={isDetailView ? "mt-5" : "mt-3"}>
+        <PostContext
+          post={post}
+          showFullContent={isDetailView}
+          postDetailPath={isDetailView ? undefined : `/post/${post.id}`}
+        />
+
         <PostMediaGallery post={post} />
+
         <PostCodeSnippets post={post} />
       </div>
 

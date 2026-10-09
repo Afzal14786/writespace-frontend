@@ -24,21 +24,51 @@ function getPlainText(content: string): string {
 
 export default function PostContext({
   post,
+  showFullContent = false,
   postDetailPath,
 }: PostContextProps) {
   const tags = post.tags ?? [];
 
-  // Prefer the complete post body over the shorter excerpt.
+  // Prefer the complete content, falling back to the excerpt.
   const content = post.content?.trim() || post.excerpt?.trim() || "";
 
   const isHtml = containsHtml(content);
-  const plainText = getPlainText(content);
+  const plainText = getPlainText(content).trim();
+
+  // Limit feed previews to 280 characters.
+  const previewLimit = 280;
+  const isLongPreview = plainText.length > previewLimit;
+
+  const displayedText =
+    !showFullContent && isLongPreview
+      ? `${plainText.slice(0, previewLimit).trimEnd()}…`
+      : plainText;
+
+  const contentStyles =
+    "[&_a]:font-medium [&_a]:text-blue-600 [&_a]:underline " +
+    "[&_a]:underline-offset-2 [&_a:hover]:text-blue-700 " +
+    "[&_blockquote]:border-l-2 [&_blockquote]:border-blue-200 " +
+    "[&_blockquote]:pl-4 [&_ol]:list-decimal [&_ol]:pl-5 " +
+    "[&_p]:mb-3 [&_p:last-child]:mb-0 [&_pre]:max-w-full " +
+    "[&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-slate-50 " +
+    "[&_pre]:p-3 [&_ul]:list-disc [&_ul]:pl-5 " +
+    "dark:[&_a]:text-blue-400 dark:[&_blockquote]:border-slate-700 " +
+    "dark:[&_pre]:bg-slate-800";
 
   return (
     <section className="min-w-0">
       {post.title && (
         <h2 className="break-words text-xl font-bold leading-snug text-slate-900 dark:text-gray-100">
-          {post.title}
+          {postDetailPath ? (
+            <Link
+              to={postDetailPath}
+              className="transition-colors hover:text-blue-600 dark:hover:text-blue-400"
+            >
+              {post.title}
+            </Link>
+          ) : (
+            post.title
+          )}
         </h2>
       )}
 
@@ -50,13 +80,13 @@ export default function PostContext({
 
       {content && (
         <div className="mt-3 break-words text-sm leading-7 text-slate-700 dark:text-gray-300">
-          {isHtml ? (
+          {showFullContent && isHtml ? (
             <div
-              className="[&_a]:font-medium [&_a]:text-blue-600 [&_a]:underline [&_a]:underline-offset-2 [&_a:hover]:text-blue-700 [&_blockquote]:border-l-2 [&_blockquote]:border-blue-200 [&_blockquote]:pl-4 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-3 [&_p:last-child]:mb-0 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-slate-50 [&_pre]:p-3 [&_ul]:list-disc [&_ul]:pl-5 dark:[&_a]:text-blue-400 dark:[&_blockquote]:border-slate-700 dark:[&_pre]:bg-slate-800"
+              className={contentStyles}
               dangerouslySetInnerHTML={{ __html: content }}
             />
           ) : (
-            <p className="whitespace-pre-wrap">{plainText}</p>
+            <p className="whitespace-pre-wrap">{displayedText}</p>
           )}
         </div>
       )}
@@ -79,7 +109,7 @@ export default function PostContext({
           to={postDetailPath}
           className="mt-3 inline-flex rounded-md text-sm font-semibold text-blue-600 transition-colors hover:text-blue-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:text-blue-400 dark:focus-visible:ring-offset-slate-900"
         >
-          Open post
+          Read full post →
         </Link>
       )}
     </section>
