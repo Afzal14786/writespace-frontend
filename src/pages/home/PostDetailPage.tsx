@@ -122,6 +122,7 @@ export default function PostDetailPage() {
           <PostCard
             post={post}
             currentUserId={user?.id}
+            viewMode="detail"
             onEdit={handleEditPost}
             onPostDeleted={handlePostDeleted}
           />
