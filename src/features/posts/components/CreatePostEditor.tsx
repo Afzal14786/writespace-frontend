@@ -13,11 +13,6 @@ interface CreatePostEditorProps {
   onPostUpdated?: (updatedPost: Post) => void;
 }
 
-interface CreatePostEditorModalProps extends CreatePostEditorProps {
-  initiallyExpanded?: boolean;
-  onCloseCreate?: () => void;
-}
-
 const CreatePostEditorModal = lazy(() => import("./CreatePostEditorModal"));
 
 function EditorLoadingFallback() {

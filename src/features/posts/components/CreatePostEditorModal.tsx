@@ -13,7 +13,9 @@ import {
   Italic,
   Link as LinkIcon,
   Save,
+  Sparkles,
 } from "lucide-react";
+import { AIAPI, type PostAssistantResult } from "@/features/ai/ai.api";
 import { useTheme } from "@/app/providers/ThemeProvider";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { toast } from "react-toastify";
@@ -99,6 +101,11 @@ const CreatePostEditor: React.FC<CreatePostEditorProps> = ({
 
   const [title, setTitle] = useState(editPost?.title || "");
   const [subtitle, setSubtitle] = useState(editPost?.subtitle || "");
+
+  const [isAiOpen, setIsAiOpen] = useState(false);
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [aiInstruction, setAiInstruction] = useState("");
+  const [aiResult, setAiResult] = useState<PostAssistantResult | null>(null);
 
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
   const [mediaPreviews, setMediaPreviews] = useState<string[]>([]);
@@ -352,6 +359,40 @@ const CreatePostEditor: React.FC<CreatePostEditorProps> = ({
 
   const removeTag = (tagToRemove: string) => {
     setTags((previous) => previous.filter((tag) => tag !== tagToRemove));
+  };
+
+  const handleGenerateAiSuggestions = async () => {
+    const content = editor?.getText().trim() ?? "";
+
+    if (!content) {
+      toast.info("Write some content before generating AI suggestions.");
+      return;
+    }
+
+    setIsAiLoading(true);
+    setAiResult(null);
+
+    try {
+      const result = await AIAPI.generatePostAssistant({
+        title: title.trim() || undefined,
+        content,
+        instruction: aiInstruction.trim() || undefined,
+      });
+
+      setAiResult(result);
+      toast.success("AI suggestions generated.");
+    } catch (error) {
+      const message =
+        error instanceof AxiosError
+          ? (error.response?.data as { message?: string } | undefined)?.message
+          : undefined;
+
+      toast.error(
+        message || "Unable to generate AI suggestions. Please try again.",
+      );
+    } finally {
+      setIsAiLoading(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -866,6 +907,294 @@ const CreatePostEditor: React.FC<CreatePostEditorProps> = ({
                 />
 
                 <div style={{ padding: "16px 20px" }}>
+                  {/* AI Post Assistant */}
+                  <div
+                    style={{
+                      margin: "12px 20px 0",
+                      padding: "14px",
+                      border: `1px solid ${borderColor}`,
+                      borderRadius: "12px",
+                      background: isDark
+                        ? "rgba(99, 102, 241, 0.08)"
+                        : "rgba(99, 102, 241, 0.04)",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setIsAiOpen((open) => !open)}
+                      aria-expanded={isAiOpen}
+                      disabled={isSubmitting}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        width: "100%",
+                        background: "transparent",
+                        border: "none",
+                        color: textColor,
+                        cursor: "pointer",
+                        fontWeight: 700,
+                        textAlign: "left",
+                      }}
+                    >
+                      <Sparkles size={18} color={accentColor} />
+                      AI Post Assistant
+                      <span
+                        style={{
+                          marginLeft: "auto",
+                          fontSize: "0.8rem",
+                          color: mutedText,
+                        }}
+                      >
+                        {isAiOpen ? "Hide" : "Generate suggestions"}
+                      </span>
+                    </button>
+
+                    {isAiOpen && (
+                      <div style={{ marginTop: "14px" }}>
+                        <label
+                          htmlFor="ai-post-instruction"
+                          style={{
+                            display: "block",
+                            marginBottom: "6px",
+                            color: mutedText,
+                            fontSize: "0.85rem",
+                          }}
+                        >
+                          Optional instructions
+                        </label>
+
+                        <textarea
+                          id="ai-post-instruction"
+                          value={aiInstruction}
+                          onChange={(event) =>
+                            setAiInstruction(event.target.value)
+                          }
+                          maxLength={1000}
+                          rows={2}
+                          placeholder="e.g. Make it beginner-friendly with practical examples"
+                          disabled={isAiLoading || isSubmitting}
+                          style={{
+                            width: "100%",
+                            boxSizing: "border-box",
+                            resize: "vertical",
+                            padding: "10px",
+                            borderRadius: "8px",
+                            border: `1px solid ${borderColor}`,
+                            background: inputBg,
+                            color: textColor,
+                            font: "inherit",
+                            fontSize: "0.9rem",
+                          }}
+                        />
+
+                        <button
+                          type="button"
+                          onClick={handleGenerateAiSuggestions}
+                          disabled={isAiLoading || isSubmitting}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "8px",
+                            marginTop: "10px",
+                            padding: "9px 14px",
+                            border: "none",
+                            borderRadius: "8px",
+                            background: accentColor,
+                            color: "#fff",
+                            fontWeight: 600,
+                            cursor:
+                              isAiLoading || isSubmitting
+                                ? "not-allowed"
+                                : "pointer",
+                            opacity: isAiLoading || isSubmitting ? 0.7 : 1,
+                          }}
+                        >
+                          {isAiLoading ? (
+                            <Loader2 size={16} className="animate-spin" />
+                          ) : (
+                            <Sparkles size={16} />
+                          )}
+                          {isAiLoading
+                            ? "Generating..."
+                            : "Generate suggestions"}
+                        </button>
+
+                        {aiResult && (
+                          <div
+                            style={{
+                              marginTop: "16px",
+                              display: "grid",
+                              gap: "14px",
+                            }}
+                          >
+                            {/* Suggested title */}
+                            <div>
+                              <strong style={{ color: textColor }}>
+                                Suggested title
+                              </strong>
+                              <p
+                                style={{
+                                  color: mutedText,
+                                  margin: "6px 0 8px",
+                                  overflowWrap: "anywhere",
+                                }}
+                              >
+                                {aiResult.suggestedTitle}
+                              </p>
+
+                              <button
+                                type="button"
+                                disabled={isSubmitting}
+                                onClick={() => {
+                                  setTitle(aiResult.suggestedTitle);
+                                  toast.success("Suggested title applied.");
+                                }}
+                                style={{
+                                  border: `1px solid ${borderColor}`,
+                                  borderRadius: "7px",
+                                  padding: "6px 10px",
+                                  background: "transparent",
+                                  color: textColor,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Apply title
+                              </button>
+                            </div>
+
+                            {/* Suggested summary */}
+                            <div>
+                              <strong style={{ color: textColor }}>
+                                Summary
+                              </strong>
+                              <p
+                                style={{
+                                  color: mutedText,
+                                  margin: "6px 0 8px",
+                                  lineHeight: 1.6,
+                                  overflowWrap: "anywhere",
+                                }}
+                              >
+                                {aiResult.summary}
+                              </p>
+
+                              <button
+                                type="button"
+                                disabled={isSubmitting || !editor}
+                                onClick={() => {
+                                  if (!editor) return;
+
+                                  editor
+                                    .chain()
+                                    .focus()
+                                    .insertContent({
+                                      type: "paragraph",
+                                      content: [
+                                        {
+                                          type: "text",
+                                          text: aiResult.summary,
+                                        },
+                                      ],
+                                    })
+                                    .run();
+
+                                  toast.success(
+                                    "Summary inserted into your post.",
+                                  );
+                                }}
+                                style={{
+                                  border: `1px solid ${borderColor}`,
+                                  borderRadius: "7px",
+                                  padding: "6px 10px",
+                                  background: "transparent",
+                                  color: textColor,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Insert summary
+                              </button>
+                            </div>
+
+                            {/* Suggested topics */}
+                            <div>
+                              <strong style={{ color: textColor }}>
+                                Suggested topics
+                              </strong>
+
+                              <div
+                                style={{
+                                  display: "flex",
+                                  flexWrap: "wrap",
+                                  gap: "6px",
+                                  margin: "8px 0",
+                                }}
+                              >
+                                {aiResult.topics.map((topic, index) => (
+                                  <span
+                                    key={`${topic}-${index}`}
+                                    style={{
+                                      padding: "5px 9px",
+                                      borderRadius: "16px",
+                                      background: `${accentColor}20`,
+                                      color: accentColor,
+                                      fontSize: "0.8rem",
+                                    }}
+                                  >
+                                    #{topic.replace(/^#+/, "")}
+                                  </span>
+                                ))}
+                              </div>
+
+                              <button
+                                type="button"
+                                disabled={isSubmitting}
+                                onClick={() => {
+                                  const normalizedTopics = aiResult.topics
+                                    .map((topic) =>
+                                      topic.trim().replace(/^#+/, ""),
+                                    )
+                                    .filter(Boolean);
+
+                                  const mergedTopics = Array.from(
+                                    new Set([...tags, ...normalizedTopics]),
+                                  );
+
+                                  setTags(mergedTopics.slice(0, 5));
+
+                                  if (mergedTopics.length > 5) {
+                                    toast.info(
+                                      "Only five tags are allowed. Some suggestions were skipped.",
+                                    );
+                                  } else if (
+                                    mergedTopics.length > tags.length
+                                  ) {
+                                    toast.success("Suggested topics added.");
+                                  } else {
+                                    toast.info(
+                                      "These topics are already added.",
+                                    );
+                                  }
+                                }}
+                                style={{
+                                  border: `1px solid ${borderColor}`,
+                                  borderRadius: "7px",
+                                  padding: "6px 10px",
+                                  background: "transparent",
+                                  color: textColor,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Add topics
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
                   <div
                     style={{ minHeight: "100px", cursor: "text" }}
                     onClick={() => editor?.commands.focus()}
